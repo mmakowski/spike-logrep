@@ -1,14 +1,11 @@
 package com.mmakowski.scratch.logrep
 
+import java.io.File
 import java.nio.ByteBuffer
-import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicLong
 
-import kafka.common.TopicAndPartition
-import kafka.log.{CleanerConfig, LogConfig, LogManager}
-import kafka.message.{Message, NoCompressionCodec, ByteBufferMessageSet}
-import kafka.server.BrokerState
-import kafka.utils.{KafkaScheduler, SystemTime}
+import kafka.log.LogConfig
+import kafka.message.{ByteBufferMessageSet, Message, NoCompressionCodec}
 import org.slf4j.LoggerFactory
 
 import scala.util.Random
@@ -18,44 +15,31 @@ object Leader {
 
   val topicName = "logrep-topic"
   val topicConfig = LogConfig()
-  val batchSizes = Seq(1, 100, 10000, 1000000) //, 100000000)
+  val batchSizes = Seq(        1,         1,         1,         1,         1,
+                             100,       100,       100,       100,       100,       100,       100,
+                           10000,     10000,     10000,     10000,     10000,     10000,
+                         1000000,   1000000,
+                        25000000)
 
   def main(args: Array[String]): Unit = {
-    val logDir = Files.createTempDirectory("logrep-")
+    val logDir = new File(args(0))
     logger.info("log dir: {}", logDir)
 
-    val scheduler = new KafkaScheduler(threads = 5, threadNamePrefix = "log-scheduler-", daemon = true)
-    val logManager = new LogManager(logDirs = Array(logDir.toFile),
-                                    topicConfigs = Map(topicName -> topicConfig),
-                                    defaultConfig = topicConfig,
-                                    cleanerConfig = CleanerConfig(),
-                                    ioThreads = 5,
-                                    flushCheckMs = 10000,
-                                    flushCheckpointMs = 10000,
-                                    retentionCheckMs = 10000,
-                                    scheduler = scheduler,
-                                    brokerState = BrokerState(),
-                                    time = SystemTime)
+    val kafka = new KafkaLog(logDir)
+    kafka.startup()
 
-    scheduler.startup()
-    logManager.startup()
-
-    try produce(logManager)
-    finally {
-      logManager.shutdown()
-      scheduler.shutdown()
-    }
+    try produce(kafka)
+    finally kafka.shutdown()
   }
 
-  private def produce(logManager: LogManager): Unit = {
-    val tap = TopicAndPartition(topicName, 0)
-    val log = logManager.getLog(tap).getOrElse(logManager.createLog(tap, topicConfig))
-    val offset = new AtomicLong(0L)
+  private def produce(kafka: KafkaLog): Unit = {
+    val offset = new AtomicLong(kafka.log.nextOffsetMetadata.messageOffset)
+    logger.debug("starting from offset {}", offset.get)
 
     while (true) {
       val nextBatch = createBatch(offset)
       logger.debug("appending...")
-      log.append(nextBatch, assignOffsets = false)
+      kafka.log.append(nextBatch, assignOffsets = false)
       logger.debug("appended")
     }
   }
