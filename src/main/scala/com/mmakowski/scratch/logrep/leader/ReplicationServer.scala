@@ -39,9 +39,9 @@ private final class ReplicationServerHandler(logReader: KafkaLogReader) extends 
   val MaxBytes = 1024 * 1024
 
   override def channelRead0(ctx: ChannelHandlerContext, protocolMessage: ReplicationProtocol.Message): Unit = {
-    println(protocolMessage)
     protocolMessage match {
       case ReplicationProtocol.Subscribe(startOffset) => publish(ctx, startOffset)
+      case _                                          => sys.error(s"unexpected message: $protocolMessage")
     }
   }
 
@@ -80,6 +80,7 @@ private final class ByteBufferChannel(size: Int) extends GatheringByteChannel {
   def write(srcs: Array[ByteBuffer]): Long = ???
 
   def write(src: ByteBuffer): Int = {
+    // TODO: this copying should not be necessary
     buffer.put(src)
     src.limit
   }

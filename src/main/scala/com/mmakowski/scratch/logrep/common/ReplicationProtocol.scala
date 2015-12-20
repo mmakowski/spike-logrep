@@ -61,6 +61,7 @@ object ReplicationProtocol {
     else
       buf.readShort match {
         case Subscribe.Id => Subscribe.parse(buf)
+        case LogEntries.Id => LogEntries.parse(buf)
         case unrecognised => ParseResult.UnrecognisedMessageId(unrecognised)
       }
 }
