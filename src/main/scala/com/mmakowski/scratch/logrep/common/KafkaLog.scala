@@ -1,4 +1,4 @@
-package com.mmakowski.scratch.logrep.log
+package com.mmakowski.scratch.logrep.common
 
 import java.io.File
 

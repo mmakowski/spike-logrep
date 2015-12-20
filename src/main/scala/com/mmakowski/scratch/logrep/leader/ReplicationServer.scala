@@ -1,12 +1,13 @@
 package com.mmakowski.scratch.logrep.leader
 
-import com.mmakowski.scratch.logrep.log.KafkaLogReader
+import com.mmakowski.scratch.logrep.common.{ReplicationProtocol, KafkaLogReader}
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.ByteBuf
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.channel._
+import io.netty.util.ReferenceCountUtil
 
 private[leader] class ReplicationServer(port: Int, logReader: KafkaLogReader) {
   def startup(): Unit = {
@@ -26,13 +27,17 @@ private[leader] class ReplicationServer(port: Int, logReader: KafkaLogReader) {
 }
 
 private final class ReplicationHandler(logReader: KafkaLogReader) extends ChannelInboundHandlerAdapter {
-  override def channelRead(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
-    println(msg)
-    msg.asInstanceOf[ByteBuf].release()
-  }
+  override def channelRead(ctx: ChannelHandlerContext, msg: AnyRef): Unit =
+    try {
+      val buf = msg.asInstanceOf[ByteBuf]
+      val protocolMessage = ReplicationProtocol.parse(buf)
+      println(protocolMessage)
+      // TODO: start serving log
+    } finally ReferenceCountUtil.release(msg)
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     cause.printStackTrace()
     ctx.close()
   }
 }
+

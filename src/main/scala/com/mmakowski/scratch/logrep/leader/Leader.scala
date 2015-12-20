@@ -3,7 +3,7 @@ package com.mmakowski.scratch.logrep.leader
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import com.mmakowski.scratch.logrep.log.{KafkaLogReader, KafkaLog}
+import com.mmakowski.scratch.logrep.common.{KafkaLogReader, KafkaLog}
 import kafka.message.{ByteBufferMessageSet, Message, NoCompressionCodec}
 import org.slf4j.LoggerFactory
 
@@ -29,6 +29,8 @@ object Leader {
     logger.info("starting rep server...")
     repServer.startup()
     logger.info("rep server started")
+
+    Thread.sleep(Long.MaxValue) // for testing rep server only
 
     try produce(kafka)
     finally kafka.shutdown()
