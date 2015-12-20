@@ -47,7 +47,10 @@ object ReplicationProtocol {
       if (buf.readableBytes < 8) ParseResult.InsufficientBytes
       else {
         val length = buf.readLong()
-        if (buf.readableBytes < length) ParseResult.InsufficientBytes
+        if (buf.readableBytes < length) {
+          println(s"need $length bytes but got ${buf.readableBytes}")
+          ParseResult.InsufficientBytes
+        }
         else {
           val entryBytes = ByteBuffer.allocate(length.toInt)
           buf.readBytes(entryBytes)

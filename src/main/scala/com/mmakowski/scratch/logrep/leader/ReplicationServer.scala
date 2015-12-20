@@ -55,7 +55,7 @@ private final class ReplicationServerHandler(logReader: KafkaLogReader) extends 
       publish(ctx, nextOffset)
     } else {
       logger.info("no messages read, sleeping...")
-      Thread.sleep(1000)
+      Thread.sleep(10000)
       publish(ctx, startOffset)
     }
   }
