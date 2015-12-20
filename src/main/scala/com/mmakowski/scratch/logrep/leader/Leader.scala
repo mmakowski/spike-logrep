@@ -1,10 +1,9 @@
-package com.mmakowski.scratch.logrep
+package com.mmakowski.scratch.logrep.leader
 
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-
-import kafka.log.LogConfig
+import com.mmakowski.scratch.logrep.log.{KafkaLogReader, KafkaLog}
 import kafka.message.{ByteBufferMessageSet, Message, NoCompressionCodec}
 import org.slf4j.LoggerFactory
 
@@ -13,8 +12,6 @@ import scala.util.Random
 object Leader {
   val logger = LoggerFactory.getLogger(this.getClass)
 
-  val topicName = "logrep-topic"
-  val topicConfig = LogConfig()
   val batchSizes = Seq(        1,         1,         1,         1,         1,
                              100,       100,       100,       100,       100,       100,       100,
                            10000,     10000,     10000,     10000,     10000,     10000,
@@ -28,6 +25,11 @@ object Leader {
     val kafka = new KafkaLog(logDir)
     kafka.startup()
 
+    val repServer = new ReplicationServer(12321, new KafkaLogReader(kafka.log))
+    logger.info("starting rep server...")
+    repServer.startup()
+    logger.info("rep server started")
+
     try produce(kafka)
     finally kafka.shutdown()
   }
@@ -40,6 +42,7 @@ object Leader {
       val nextBatch = createBatch(offset)
       logger.debug("appending...")
       kafka.log.append(nextBatch, assignOffsets = false)
+      kafka.log.flush()
       logger.debug("appended")
     }
   }

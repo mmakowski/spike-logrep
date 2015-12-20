@@ -1,13 +1,13 @@
-package com.mmakowski.scratch.logrep
+package com.mmakowski.scratch.logrep.log
 
 import java.io.File
 
 import kafka.common.TopicAndPartition
-import kafka.log.{Log, LogConfig, CleanerConfig, LogManager}
-import kafka.server.BrokerState
-import kafka.utils.{SystemTime, KafkaScheduler}
+import kafka.log.{CleanerConfig, Log, LogConfig, LogManager}
+import kafka.server.{BrokerState, FetchDataInfo}
+import kafka.utils.{KafkaScheduler, SystemTime}
 
-class KafkaLog(logDir: File) {
+final class KafkaLog(logDir: File) {
   private val topicName = "logrep-topic"
   private val tap = TopicAndPartition(topicName, 0)
   private val topicConfig = LogConfig()
@@ -35,4 +35,9 @@ class KafkaLog(logDir: File) {
   }
 
   lazy val log: Log = logManager.getLog(tap).getOrElse(logManager.createLog(tap, topicConfig))
+}
+
+final class KafkaLogReader(log: Log) {
+  def read(startOffset: Long, maxLengthBytes: Int, maxOffset: Option[Long] = None): FetchDataInfo =
+    log.read(startOffset, maxLengthBytes, maxOffset)
 }
