@@ -1,14 +1,12 @@
 package com.mmakowski.scratch.logrep.follower
 
-import com.mmakowski.scratch.logrep.common.ReplicationProtocol
-import com.mmakowski.scratch.logrep.common.ReplicationProtocol.Start
+import com.mmakowski.scratch.logrep.common.ReplicationProtocol.Subscribe
+import com.mmakowski.scratch.logrep.common.{MessageDecoder, ReplicationProtocol}
 import io.netty.bootstrap.Bootstrap
-import io.netty.buffer.ByteBuf
-import io.netty.channel.socket.nio.NioSocketChannel
-import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter, ChannelInitializer, ChannelOption}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
-import io.netty.util.ReferenceCountUtil
+import io.netty.channel.socket.nio.NioSocketChannel
+import io.netty.channel.{ChannelHandlerContext, ChannelInboundHandlerAdapter, ChannelInitializer, ChannelOption}
 
 object Follower {
   def main(args: Array[String]): Unit = {
@@ -21,7 +19,7 @@ object Follower {
      .channel(classOf[NioSocketChannel])
      .option(ChannelOption.SO_KEEPALIVE.asInstanceOf[ChannelOption[Any]], true)
      .handler(new ChannelInitializer[SocketChannel]() {
-       def initChannel(ch: SocketChannel): Unit = ch.pipeline.addLast(new ReplicationClientHandler)
+       def initChannel(ch: SocketChannel): Unit = ch.pipeline.addLast(new MessageDecoder, new ReplicationClientHandler)
      })
     val f = b.connect(host, port).sync()
     f.channel.closeFuture.sync()
@@ -30,15 +28,13 @@ object Follower {
 
 final class ReplicationClientHandler extends ChannelInboundHandlerAdapter {
   override def channelActive(ctx: ChannelHandlerContext): Unit =
-    ctx.writeAndFlush(Start(0).toByteBuf(ctx.alloc))
+    ctx.writeAndFlush(Subscribe(0).toByteBuf(ctx.alloc))
 
-  override def channelRead(ctx: ChannelHandlerContext, msg: AnyRef): Unit =
-    try {
-      val buf = msg.asInstanceOf[ByteBuf]
-      val protocolMessage = ReplicationProtocol.parse(buf)
-      println(protocolMessage)
-      // TODO: start serving log
-    } finally ReferenceCountUtil.release(msg)
+  override def channelRead(ctx: ChannelHandlerContext, msg: AnyRef): Unit = {
+    val protocolMessage = msg.asInstanceOf[ReplicationProtocol.Message]
+    println(protocolMessage)
+    // TODO: act on the message
+  }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
     cause.printStackTrace()
