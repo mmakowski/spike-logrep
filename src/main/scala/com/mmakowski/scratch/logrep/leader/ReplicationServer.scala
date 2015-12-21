@@ -36,6 +36,8 @@ private[leader] class ReplicationServer(port: Int, logReader: KafkaLogReader) {
 
 private final class ReplicationServerHandler(logReader: KafkaLogReader) extends SimpleChannelInboundHandler[ReplicationProtocol.Message] {
   private val logger = LoggerFactory.getLogger(this.getClass)
+  // TODO: messages of this size don't work, cause infinite looping in the client. We should probably use ChunkedWriteHandler instead
+  // it could even make the protocol simpler
   val MaxBytes = 1024 //* 1024
 
   override def channelRead0(ctx: ChannelHandlerContext, protocolMessage: ReplicationProtocol.Message): Unit = {
