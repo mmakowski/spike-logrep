@@ -36,7 +36,7 @@ private[leader] class ReplicationServer(port: Int, logReader: KafkaLogReader) {
 
 private final class ReplicationServerHandler(logReader: KafkaLogReader) extends SimpleChannelInboundHandler[ReplicationProtocol.Message] {
   private val logger = LoggerFactory.getLogger(this.getClass)
-  val MaxBytes = 1024 * 1024
+  val MaxBytes = 1024 //* 1024
 
   override def channelRead0(ctx: ChannelHandlerContext, protocolMessage: ReplicationProtocol.Message): Unit = {
     protocolMessage match {
@@ -45,25 +45,29 @@ private final class ReplicationServerHandler(logReader: KafkaLogReader) extends 
     }
   }
 
-  @tailrec
   private def publish(ctx: ChannelHandlerContext, startOffset: Long): Unit = {
     logger.info("publishing from offset {}", startOffset)
     val fetch = logReader.read(startOffset, MaxBytes)
     if (fetch.messageSet.nonEmpty) {
       val nextOffset = fetch.messageSet.last.nextOffset
-      ctx.writeAndFlush(ReplicationProtocol.LogEntries(toByteBuffer(fetch.messageSet)))
-      publish(ctx, nextOffset)
+      val write = ctx.writeAndFlush(ReplicationProtocol.LogEntries(toByteBuffer(fetch.messageSet)))
+      write.addListener(new ChannelFutureListener {
+        def operationComplete(future: ChannelFuture): Unit = {
+          assert(future == write)
+          publish(ctx, nextOffset)
+        }
+      })
     } else {
-      logger.info("no messages read, sleeping...")
-      Thread.sleep(10000)
-      publish(ctx, startOffset)
+//      logger.info("no messages read, sleeping...")
+//      Thread.sleep(10000)
+//      publish(ctx, startOffset)
     }
   }
 
   private def toByteBuffer(messageSet: MessageSet): ByteBuffer = {
     val channel = new ByteBufferChannel(messageSet.sizeInBytes)
     messageSet.writeTo(channel, 0, messageSet.sizeInBytes)
-    channel.buffer.asReadOnlyBuffer
+    channel.buffer
   }
 
   override def exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable): Unit = {
@@ -82,6 +86,7 @@ private final class ByteBufferChannel(size: Int) extends GatheringByteChannel {
   def write(src: ByteBuffer): Int = {
     // TODO: this copying should not be necessary
     buffer.put(src)
+    buffer.flip()
     src.limit
   }
 
